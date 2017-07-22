@@ -1,0 +1,20 @@
+### install web UI
+
+curl -O https://rawgit.com/kubernetes/dashboard/master/src/deploy/kubernetes-dashboard.yaml
+vi kubernetes-dashboard.yaml
+
+### Uncomment this line: "- --apiserver-host" and and set:
+
+    - --apiserver-host=http://10.0.1.82:8080 # kube master IP address
+### Create namespace, create deployment and service:
+
+kubectl create namespace kube-system
+kubectl create -f kubernetes-dashboard.yaml
+
+### Wait for status: Running
+
+# kubectl get pods -a -o wide --all-namespaces
+NAMESPACE     NAME                                   READY     STATUS    RESTARTS   AGE       NODE
+kube-system   kubernetes-dashboard-749351892-omi0m   1/1       Running   0          28s       kube-minion-1
+### Open: http://10.0.1.82:8080/ui
+
