@@ -1,0 +1,84 @@
+  307  yum erase etcd
+  308  yum -y erase kubernetes etcd
+  309  cat /etc/hosts
+  310  systemctl disable firewalld ;systemctl stop firewalld
+  311  vim /etc/yum.repos.d/virt7-docker-common-release.repo
+  312  yum -y install --enablerepo=virt7-docker-common-release kubernetes etcd flannel
+  313  vim /etc/yum.repos.d/virt7-docker-common-release.repo
+  314  yum -y install --enablerepo=virt7-docker-common-release kubernetes etcd flannel
+  315  vim /etc/kubernetes/config 
+  316  vim /etc/etcd/etcd.conf 
+  317  vim /etc/kubernetes/apiserver 
+  318  ip a
+  319  vim /etc/kubernetes/config 
+  320  vim /etc/etcd/etcd.conf 
+  321  vim /etc/kubernetes/apiserver 
+  322  vim /etc/sysconfig/flanneld 
+  323  systemctl start etcd
+  324  etcdctl mkdir /kube-centos/network
+  349  systemctl start etcd
+  350  etcdctl rm /kube-centos/network/config "{ \"Network\": \"172.30.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+  351  etcdctl mkdir /kube-centos/network
+  352  etcdctl rmdir /kube-centos/network
+  353  systemctl start etcd
+  354  etcdctl mkdir /kube-centos/network
+  355  etcdctl mk /kube-centos/network/config "{ \"Network\": \"172.30.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+  356  for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do systemctl stop $SERVICES; systemctl disable $SERVICES; systemctl status $SERVICES; done
+  357  for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do systemctl restart $SERVICES -l; systemctl enablen $SERVICES -l; systemctl status $SERVICES -l; done
+  365  kubectl get nodes
+  366  kubectl get cs
+  369  for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do systemctl restart $SERVICES; systemctl enable $SERVICES; systemctl status $SERVICES; done
+  377  kubectl describe node devopsclient1.example.com
+  380  echo "net.ipv4.ip_forward =1 " > /etc/sysctl.d/docker_network.conf
+  381  sysctl -p /etc/sysctl.d/docker_network.conf
+  382  kubectl get nodes -o wide
+  383  kubectl get nodes
+  384  kubectl get pods
+  474  kubectl get -list statefulsets
+  475  kubectl describe pods $POD_NAME
+  476  kubectl get deployments
+  477  kubectl scale deployments/nginx --current-replicas=10 --replicas=1
+  478  kubectl get pods
+  479  kubectl scale deployments/nginx-lab-cli --current-replicas=2 --replicas=1
+  480  kubectl get pods
+  481  kubectl get pods -o wide
+  482  kubectl scale deployments/nginx-lab-cli --current-replicas=2 --replicas=0
+  483  kubectl get pods -o wide
+  484  kubectl get pods
+  485  kubectl scale deployments/nginx-lab-cli --current-replicas=1 --replicas=0
+  486  kubectl scale deployments/nginx --current-replicas=1 --replicas=0
+  487  kubectl get pods -o wide
+  488  git 
+  489  yum install -y git
+  490  git@github.com:sanjaypandrala/kubernetesnaga.git
+  491  echo "# kubernetesnaga" >> README.md
+  492  git init
+  493  git add README.md
+  494  git commit -m "first commit"
+  495  git remote add origin git@github.com:sanjaypandrala/kubernetesnaga.git
+  496  git push -u origin master
+  497  git remote add origin git@github.com:sanjaypandrala/kubernetesnaga.git
+  498  git push -u origin master
+  541  git remote -v
+  542  git remote set-url --add origin git+ssh@github.com:sanjaypandrala/kubernetesnaga.git
+  558  git init kubernetesnaga
+  559  ls
+  560  cd kubernetesnaga/
+  561  git push --set-upstream origin master
+  562  git push
+  563  git remote set-url --add origin git+ssh@github.com:sanjaypandrala/kubernetesnaga.git
+  564  git remote -v
+  565  git remote rm  origin
+  566  git remote set-url --add master git+ssh@github.com:sanjaypandrala/kubernetesnaga.git
+  567  https://github.com/sanjaypandrala/kubernetesnaga.git
+  568  echo "# kubernetesnaga" >> README.md
+  569  git init
+  570  git add README.md
+  571  git commit -m "first commit"
+  572  git remote add origin https://github.com/sanjaypandrala/kubernetesnaga.git
+  573  git push -u origin master
+  574  vim kubecmds
+  575  git add kubecmds 
+  576  git commit -m "kubecmds" 
+  577  git push
+  578  history > kubernetessuccessfullinstallation.txt
