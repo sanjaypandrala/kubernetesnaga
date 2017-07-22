@@ -1,0 +1,972 @@
+https://kubernetes.io/docs/getting-started-guides/centos/centos_manual_config/
+
+(master and nodes)
+vim /etc/yum.repos.d/virt7-docker-common-release.repo
+
+[virt7-docker-common-release]
+name=virt7-docker-common-release
+baseurl=http://cbs.centos.org/repos/virt7-docker-common-release/x86_64/os/
+gpgcheck=0
+
+
+(master and nodes)
+yum -y install --enablerepo=virt7-docker-common-release kubernetes etcd flannel
+
+(master and nodes)
+
+vim /etc/kubernetes/config
+KUBE_LOGTOSTDERR="--logtostderr=true"
+KUBE_LOG_LEVEL="--v=0"
+KUBE_ALLOW_PRIV="--allow-privileged=false"
+KUBE_MASTER="--master=http://devmain.example.com:8080"
+
+master and nodes
+for flannel   
+vim /etc/sysconfig/flanneld
+
+FLANNEL_ETCD_ENDPOINTS="http://devmain.example.com:2379"
+FLANNEL_ETCD_PREFIX="/kube-centos/network"
+FLANNEL_OPTIONS="--iface=enp0s8"
+
+master
+
+systemctl start etcd
+etcdctl mkdir /kube-centos/network
+etcdctl mk /kube-centos/network/config "{ \"Network\": \"172.30.0.0/16\", \"SubnetLen\": 24, \"Backend\": { \"Type\": \"vxlan\" } }"
+
+master
+vim /etc/etcd/etcd.conf
+ETCD-NAME=default
+ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
+ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
+ETCD_ADVERTISE_CLIENT_URLS="http://0.0.0.0:2379"
+
+vim /etc/kubernetes/apiserver
+KUBE_API_ADDRESS="--address=0.0.0.0"
+KUBE_API_PORT="--port=8080"
+KUBELET_PORT="--kubelet-port=10250"
+KUBE_ETCD_SERVERS="--etcd-servers=http://devmain.example.com:2379"
+KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=10.254.0.0/16"
+KUBELET_ARGS=""
+
+master
+
+for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do
+systemctl restart $SERVICES
+systemctl enable $SERVICES
+systemctl status $SERVICES
+done
+
+for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler flanneld; do
+systemctl stop $SERVICES
+systemctl disable $SERVICES
+systemctl status $SERVICES
+done
+
+
+node
+
+vim /etc/kubernetes/kubelet
+
+KUBELET_ADDRESS="--address=0.0.0.0"
+KUBELET_PORT="--port=10250"
+KUBELET_HOSTNAME="--hostname-override=devopsclient1.example.com"
+KUBELET_API_SERVER="--api-servers=http://devmain.example.com:8080"
+KUBELET_ARGS=""
+
+node
+
+for SERVICES in kube-proxy kubelet  flanneld docker ; do
+systemctl restart $SERVICES
+systemctl enable $SERVICES
+systemctl status $SERVICES
+done
+
+node
+
+kubectl config set-cluster default-cluster --server=http://devmain.example.com:8080
+kubectl config set-context default-context --cluster=default-cluster --user=default-admin
+kubectl config use-context default-context
+
+do this for ipforwarding master and nodes
+
+echo "net.ipv4.ip_forward =1 " > /etc/sysctl.d/docker_network.conf
+
+sysctl -p /etc/sysctl.d/docker_network.conf
+
+
+###################
+### deploy nginx container
+$ kubectl run my-web --image=nginx --port=80
+
+$ kubectl get deployments
+$ kubectl get pods
+### expose nginx container
+$ kubectl expose deployment my-web --target-port=80 --type=NodePort
+### to access nginx
+$ PORT=$(kubectl get svc my-web -o go-template='{{(index .spec.ports 0).nodePort}}')
+$ curl http://170.x.x.x:$PORT
+
+$ export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}') 
+$ echo Name of the Pod: $POD_NAME
+$ curl http://localhost:8001/api/v1/proxy/namespaces/default/pods/$POD_NAME/
+
+######################## deploy an app using ; using kubectl to create a deployment #############################
+$kubectl version
+$kubectl get nodes
+$kubectl run kubernetes-bootcamp --image=docker.io/jocatalin/kubernetes-bootcamp:v1 --port=8080
+$kubectl get deployments
+$kubectl proxy
+$ kubectl get –list
+$ export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}') 
+$ echo Name of the Pod: $POD_NAME
+$ curl http://localhost:8001/api/v1/proxy/namespaces/default/pods/$POD_NAME/
+################# explore your app ###########################
+$kubectl get pods
+$kubectl describe pods 
+
+#################  ###viewing pods and nodes
+$ kubectl get -list resources
+
+$kubectl describe    #### - show detailed information about a resource
+$kubectl logs
+$kubectl exec ### - execute a command on a container in a pod
+$kubectl get pods
+$kubectl describe pods
+$kubectl proxy
+$export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+$ echo Name of the Pod: $POD_NAME
+$curl http://localhost:8001/api/v1/proxy/namespaces/default/pods/$POD_NAME/
+$kubectl logs $POD_NAME
+$kubectl exec $POD_NAME env
+$kubectl exec -ti $POD_NAME bash
+$cat server.js
+$curl localhost:8080
+############################expose your app publicly###############
+######################create a new service ##################
+$kubectl get pods
+$kubectl get services
+$kubectl expose deployment/kubernetes-bootcamp – type=”NodePort” –port 8080
+$kubectl get services
+$kubectl describe services/kubernetes-bootcamp
+$export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template
+   =’{{(index.spec.ports 0).nodePort}}’)
+$echo NODE_PORT=$NODE_PORT
+$curl host01:$NODE_PORT
+#######USING LABELS
+$kubectl describe deployment
+$kubectl get pods -1 run=kubernetes-bootcamp
+$kubectl get services -1 run=kubernetes-bootcamp
+$export POD_NAME=$(kubectl get pods -o go-template –template ‘{{range.items}} {{.metadata.name}}{{“\n”}}{{end}}’)
+$echo Name of the pod:$POD_NAME
+$kubectl label pod $POD_NAME app=v1
+$kubectl describe pods $POD_NAME
+$kubectl get pods -1 app=v1
+$kubectl delete service -1 run=kubernetes-bootcamp
+$kubectl get services
+$curl host01:$NODE_PORT
+$kubectl exec -it $POD_NAME curl localhost:8080
+#############scaling your app################
+#############scaling a deployment ###########
+$kubectl get deployments
+$kubectl scale deplyments/kubernetes-bootcamp –replicas=4
+$kubectl get deployments
+$kubectl get pods -o wide
+$kubectl describe deployments/kubernetes-bootcamp
+################ load balancing #####################
+$kubectl describe services/kubernetes-bootcamp
+$export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template=’{{(index.spec,ports 0).nodePort}}’)
+$echo NODE_PORT=$ NODE_PORT
+$curl host01:$NODE_PORT
+###################SCALE DOWN #####################
+$kubectl scale deployments/kubernetes-bootcamp –replicas=2
+$kubectl get deployments
+$kubectl get pods -o wide
+######################update your app ###################
+##############update the version ##################
+$kubectl get pods
+$kubectl describe pods
+$kubectl set image deployments/kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+$kubectl get pods
+#############verify an update###################
+$kubectl describe services/kubernetes-bootcamp
+$export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template=
+   ‘{{(index.spec.ports 0).nodePort}}’)
+$echo NODE_PORT=$ NODE_PORT
+$curl host01:$ NODE_PORT
+$kubectl rollout status deployments/kubernetes-bootcamp
+$ kubectl describle pods
+$ kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=
+   Jocatalin/kubernetes-bootcamp:v10
+$kubectl get deployments
+$kubectl get pods
+$kubectl describe pods
+$kubectl rollout undo deployments/kubernetes-bootcamp
+$kubectl get pods
+$kubectl describe pods
+$
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 4  # scaled from 2 to 4
+  minReadySeconds: 5  #  deployment
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # unlike pod-nginx.yaml, the name is not included in the meta data as a unique name is
+      # generated from the deployment name
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.8 # Update the version of nginx from 1.7.9 to 1.8
+        ports:
+        - containerPort: 80
+
+############################################  start web.yaml ##########################################
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: gcr.io/google_containers/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: anything
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
+
+############################################  end of web.yaml ##########################################
+############################################  persistent volume ##########################################
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: mysql-disk
+    fsType: ext4
+############################################  persistent volume ##########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+
+############################################  end of persistent volume ##########################################
+
+
+############################################  mysql config ######################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+data:
+  master.cnf: |
+    # Apply this config only on the master.
+    [mysqld]
+    log-bin
+  slave.cnf: |
+    # Apply this config only on slaves.
+    [mysqld]
+    super-read-only
+############################################  end of mysql config##############################################
+
+############################################  mysql stateful headless ##########################################
+# Headless service for stable DNS entries of StatefulSet members.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+  clusterIP: None
+  selector:
+    app: mysql
+---
+# Client service for connecting to any MySQL instance for reads.
+# For writes, you must instead connect to the master: mysql-0.mysql.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-read
+  labels:
+    app: mysql
+spec:
+  ports:
+  - name: mysql
+    port: 3306
+  selector:
+    app: mysql
+############################################  end of mysql stateful headless ######################################
+
+############################################  start of mysql statefulset  ##########################################
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: mysql
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+          {
+            "name": "init-mysql",
+            "image": "mysql:5.7",
+            "command": ["bash", "-c", "
+              set -ex\n
+              # Generate mysql server-id from pod ordinal index.\n
+              [[ `hostname` =~ -([0-9]+)$ ]] || exit 1\n
+              ordinal=${BASH_REMATCH[1]}\n
+              echo [mysqld] > /mnt/conf.d/server-id.cnf\n
+              # Add an offset to avoid reserved server-id=0 value.\n
+              echo server-id=$((100 + $ordinal)) >> /mnt/conf.d/server-id.cnf\n
+              # Copy appropriate conf.d files from config-map to emptyDir.\n
+              if [[ $ordinal -eq 0 ]]; then\n
+                cp /mnt/config-map/master.cnf /mnt/conf.d/\n
+              else\n
+                cp /mnt/config-map/slave.cnf /mnt/conf.d/\n
+              fi\n
+            "],
+            "volumeMounts": [
+              {"name": "conf", "mountPath": "/mnt/conf.d"},
+              {"name": "config-map", "mountPath": "/mnt/config-map"}
+            ]
+          },
+          {
+            "name": "clone-mysql",
+            "image": "gcr.io/google-samples/xtrabackup:1.0",
+            "command": ["bash", "-c", "
+              set -ex\n
+              # Skip the clone if data already exists.\n
+              [[ -d /var/lib/mysql/mysql ]] && exit 0\n
+              # Skip the clone on master (ordinal index 0).\n
+              [[ `hostname` =~ -([0-9]+)$ ]] || exit 1\n
+              ordinal=${BASH_REMATCH[1]}\n
+              [[ $ordinal -eq 0 ]] && exit 0\n
+              # Clone data from previous peer.\n
+              ncat --recv-only mysql-$(($ordinal-1)).mysql 3307 | xbstream -x -C /var/lib/mysql\n
+              # Prepare the backup.\n
+              xtrabackup --prepare --target-dir=/var/lib/mysql\n
+            "],
+            "volumeMounts": [
+              {"name": "data", "mountPath": "/var/lib/mysql", "subPath": "mysql"},
+              {"name": "conf", "mountPath": "/etc/mysql/conf.d"}
+            ]
+          }
+        ]'
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        env:
+        - name: MYSQL_ALLOW_EMPTY_PASSWORD
+          value: "1"
+        ports:
+        - name: mysql
+          containerPort: 3306
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+          subPath: mysql
+        - name: conf
+          mountPath: /etc/mysql/conf.d
+        resources:
+          requests:
+            cpu: 1
+            memory: 1Gi
+        livenessProbe:
+          exec:
+            command: ["mysqladmin", "ping"]
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            # Check we can execute queries over TCP (skip-networking is off).
+            command: ["mysql", "-h", "127.0.0.1", "-e", "SELECT 1"]
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+      - name: xtrabackup
+        image: gcr.io/google-samples/xtrabackup:1.0
+        ports:
+        - name: xtrabackup
+          containerPort: 3307
+        command:
+        - bash
+        - "-c"
+        - |
+          set -ex
+          cd /var/lib/mysql
+
+          # Determine binlog position of cloned data, if any.
+          if [[ -f xtrabackup_slave_info ]]; then
+            # XtraBackup already generated a partial "CHANGE MASTER TO" query
+            # because we're cloning from an existing slave.
+            mv xtrabackup_slave_info change_master_to.sql.in
+            # Ignore xtrabackup_binlog_info in this case (it's useless).
+            rm -f xtrabackup_binlog_info
+          elif [[ -f xtrabackup_binlog_info ]]; then
+            # We're cloning directly from master. Parse binlog position.
+            [[ `cat xtrabackup_binlog_info` =~ ^(.*?)[[:space:]]+(.*?)$ ]] || exit 1
+            rm xtrabackup_binlog_info
+            echo "CHANGE MASTER TO MASTER_LOG_FILE='${BASH_REMATCH[1]}',\
+                  MASTER_LOG_POS=${BASH_REMATCH[2]}" > change_master_to.sql.in
+          fi
+
+          # Check if we need to complete a clone by starting replication.
+          if [[ -f change_master_to.sql.in ]]; then
+            echo "Waiting for mysqld to be ready (accepting connections)"
+            until mysql -h 127.0.0.1 -e "SELECT 1"; do sleep 1; done
+
+            echo "Initializing replication from clone position"
+            # In case of container restart, attempt this at-most-once.
+            mv change_master_to.sql.in change_master_to.sql.orig
+            mysql -h 127.0.0.1 <<EOF
+          $(<change_master_to.sql.orig),
+            MASTER_HOST='mysql-0.mysql',
+            MASTER_USER='root',
+            MASTER_PASSWORD='',
+            MASTER_CONNECT_RETRY=10;
+          START SLAVE;
+          EOF
+          fi
+
+          # Start a server to send backups when requested by peers.
+          exec ncat --listen --keep-open --send-only --max-conns=1 3307 -c \
+            "xtrabackup --backup --slave-info --stream=xbstream --host=127.0.0.1 --user=root"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+          subPath: mysql
+        - name: conf
+          mountPath: /etc/mysql/conf.d
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      volumes:
+      - name: conf
+        emptyDir: {}
+      - name: config-map
+        configMap:
+          name: mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: default
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+############################################  start zookeeper  ##########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-headless
+  labels:
+    app: zk-headless
+spec:
+  ports:
+  - port: 2888
+    name: server
+  - port: 3888
+    name: leader-election
+  clusterIP: None
+  selector:
+    app: zk
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zk-config
+data:
+  ensemble: "zk-0;zk-1;zk-2"
+  jvm.heap: "2G"
+  tick: "2000"
+  init: "10"
+  sync: "5"
+  client.cnxns: "60"
+  snap.retain: "3"
+  purge.interval: "1"
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: zk-budget
+spec:
+  selector:
+    matchLabels:
+      app: zk
+  minAvailable: 2
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: zk
+spec:
+  serviceName: zk-headless
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: zk
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+        
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values: 
+                    - zk-headless
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: k8szk
+        imagePullPolicy: Always
+        image: gcr.io/google_samples/k8szk:v1
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1"
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: server
+        - containerPort: 3888
+          name: leader-election
+        env:
+        - name : ZK_ENSEMBLE
+          valueFrom:
+            configMapKeyRef:
+              name: zk-config
+              key: ensemble
+        - name : ZK_HEAP_SIZE
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: jvm.heap
+        - name : ZK_TICK_TIME
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: tick
+        - name : ZK_INIT_LIMIT
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: init
+        - name : ZK_SYNC_LIMIT
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: tick
+        - name : ZK_MAX_CLIENT_CNXNS
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: client.cnxns
+        - name: ZK_SNAP_RETAIN_COUNT
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: snap.retain
+        - name: ZK_PURGE_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+                name: zk-config
+                key: purge.interval
+        - name: ZK_CLIENT_PORT
+          value: "2181"
+        - name: ZK_SERVER_PORT
+          value: "2888"
+        - name: ZK_ELECTION_PORT
+          value: "3888"
+        command:
+        - sh
+        - -c
+        - zkGenConfig.sh && zkServer.sh start-foreground
+        readinessProbe:
+          exec:
+            command:
+            - "zkOk.sh"
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - "zkOk.sh"
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/lib/zookeeper
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: anything
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+############################################  end of zookeeper ##########################################
+
+############################################  start of front end ##########################################
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: hello
+    tier: frontend
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+        - name: nginx
+          image: "gcr.io/google-samples/hello-frontend:1.0"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/sbin/nginx","-s","quit"]
+############################################  end of front end ##########################################
+
+############################################  start of hello service ##########################################
+kind: Service
+apiVersion: v1
+metadata:
+  name: hello
+spec:
+  selector:
+    app: hello
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: http
+############################################  end of hello service ##########################################
+
+############################################  start of hello.yaml ##########################################
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+        - name: hello
+          image: "gcr.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+############################################  end of hello.yaml ##########################################
+
+############################################  start of frontend.conf  ##########################################
+upstream hello {
+    server hello;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://hello;
+    }
+}
+############################################  end of frontend.conf  ##########################################
+
+############################################  start of writedenial.profile ##########################################
+#include <tunables/global>
+
+profile k8s-apparmor-example-deny-write flags=(attach_disconnected) {
+  #include <abstractions/base>
+
+  file,
+
+  # Deny all file writes.
+  deny /** w,
+}
+############################################  end of writedenial.profile  ##########################################
+
+###################  start of Hello AppArmor” pod with the deny-write profile ##########################################
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-apparmor
+  annotations:
+    # Tell Kubernetes to apply the AppArmor profile "k8s-apparmor-example-deny-write".
+    # Note that this is ignored if the Kubernetes node is not running version 1.4 or greater.
+    container.apparmor.security.beta.kubernetes.io/hello: localhost/k8s-apparmor-example-deny-write
+spec:
+  containers:
+  - name: hello
+    image: busybox
+    command: [ "sh", "-c", "echo 'Hello AppArmor!' && sleep 1h" ]
+########################  end of Hello AppArmor” pod with the deny-write profile  ##########################################
+
+############################################  start of pod1.yaml##########################################
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-annotation
+  labels:
+    name: multischeduler-example
+spec:
+  containers:
+  - name: pod-with-no-annotation-container
+    image: gcr.io/google_containers/pause:2.0
+############################################  end of pod1.yaml##########################################
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-annotation
+  labels:
+    name: multischeduler-example
+spec:
+  containers:
+  - name: pod-with-no-annotation-container
+    image: gcr.io/google_containers/pause:2.0
+############################################  start of pod2.yaml ##########################################
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-default-scheduler
+  labels:
+    name: multischeduler-example
+spec:
+  schedulerName: default-scheduler
+  containers:
+  - name: pod-with-default-annotation-container
+    image: gcr.io/google_containers/pause:2.0
+############################################  end of pod2.yaml ##########################################
+
+############################################  start of pod3.yaml ##########################################
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-second-scheduler
+  labels:
+    name: multischeduler-example
+spec:
+  schedulerName: my-scheduler
+  containers:
+  - name: pod-with-second-annotation-container
+    image: gcr.io/google_containers/pause:2.0
+############################################  end of pod3.yaml ##########################################
+
+############################################  start of creating app in docker accessing kubernetes access the url also ############### in google cloud ssh in vm ; mkdir ; create docker file build it and then
+$ sudo gcloud container clusters create claydesk-app
+$gcloud container clusters describe claydesk-app  #######   gives pwd and admin for kubernetes
+$ kubectl cluster-info     ############################# gives url to connect to kubernestes ui
+$ kubectl run workpress –image=tutum/wordpress  --port=80            ##################pull image ex wordpress from docker hub
+$kubectl expose deployment wordpress –type=LoadBalancer   ##################it will give the load balancer
+$kubectl describe services wordpress            ############# to see how it looks cope the ip address which can be accessed by url            or
+$kubectl get services wordpress
+$kubectl delete services wordpress    ######### step 1 to stop charges by google################
+$kubectl delete deployment wordpress ######### step 2 to stop charges by google################
+
+############################################  end of creating app in docker accessing kubernetes access the url also ##############
+
+############################################  start of ##########################################
+ 
+
+############################################  end of ##########################################
+############################################  start of  ##########################################
+PODS is the basic unit that kubernetes deals with; closely related containers are grouped together in a pod; can contain one or more containers that should be controlled as a single app;
+SERVICES is a unit that acts as a basic load balancer and ambassador for other containers; services are interfaces to a group of containers providing a single access location
+REPLICATION CONTROLLER is a framework for defining pods that are meant to be horizontally scaled;
+Container goes down the replication controller start up another container; 
+LABELS  is basically an arbitrary tag that can be placed on the above work units to mark them as a part of a group; you give pods a ‘NAME’ key as a general purpose identifier
+############################################  end of  ##########################################
+
+############################################  start of pulling from docker and pushing to gcloud##############################
+$ docker pull mongo
+$ docker tag mongo gcr.io/claydesk-1380/mongo  # to create a tag
+$ gcloud docker push gcr.io/claydesk-1380/mongo  # claydesk-1380 is the project id
+$ 
+############################################  end of pulling from docker and pushing to gcloud ###############################
+
+############################################  start of creating cluster using gclod shell####################################
+$ gcloud compute zones list
+$ gcloud config set compute/zone us-centrall-a
+$gcloud  container clusters create claydesk-app   #### to create the cluster default is 3 nodes 
+############################################  end of creating cluster using gclod shell########################################
+
+############################################  start of creating cluster guest book ##########################################
+$kubectl cluster-info
+$gcloud config set project claydesk-1380
+$ gcloud config set compute/zone us-cent
+$gcloud container clusters create guestbook
+$gcloud container clusters list
+$gcloud container clusters describe guestbook  #### will ip address; pwd;admin to acces kubernetes
+$kubectl cluster info  ### will give url to acess kubernetes dashboard
+$kubectl create -f xxxxxxx.yaml
+$kubectl get services
+$kubectl get rc.
+$kubectl get pods
+############# for front end #############
+$ kubectl get services
+$ kubectl describe services frontend
+###############project clean up ################
+$ kubectl delete services frontend ############# remove load balancer
+$ gcloud container clusters delete guestbook
+$
+
+
+############################################  end of creating cluster guest book ##########################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
