@@ -1,0 +1,6 @@
+docker run -it d P 1b19
+docker run -d 1b19
+docker ps
+docker commit 25ff web
+docker tag web sanj/web
+docker push sanj/web
