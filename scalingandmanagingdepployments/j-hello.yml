@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: j-hello
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: j-hello
+        image: janakiramm/j-hello
+        ports:
+        - name:
+          containerPort: 3000
+
