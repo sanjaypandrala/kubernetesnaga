@@ -1,0 +1,79 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:dc="/lib/docker/commons">
+  <!--
+    This jelly script is used for per-project configuration.
+
+    See global.jelly for a general discussion about jelly script.
+  -->
+  <f:entry title="Repository Name" field="repoName">
+    <f:textbox />
+  </f:entry>
+
+  <f:entry title="Tag" field="repoTag">
+    <f:textbox />
+  </f:entry>
+
+  <f:property field="server"/>
+  <f:property field="registry"/>
+
+  <f:advanced>
+
+    <f:entry title="Skip Push" field="skipPush"
+        description="Do not push image to registry/index on successful completion">
+        <f:checkbox />
+    </f:entry>
+
+    <f:entry title="No Cache" field="noCache"
+        description="Force rebuild - do not user docker cache (may be slower)">
+        <f:checkbox />
+    </f:entry>
+
+   <f:entry title="Force Pull" field="forcePull"
+        description="Update the source image before building even when it exists locally">
+        <f:checkbox default="true" />
+   </f:entry>
+
+    <f:entry title="Skip Build" field="skipBuild"
+        description="Do not build the image">
+        <f:checkbox />
+    </f:entry>
+    
+    <f:entry title="${%Create fingerprints}" field="createFingerprint">
+        <f:checkbox default="true"/>
+    </f:entry>
+
+    <f:entry title="Skip Decorate" field="skipDecorate"
+        description="Do not decorate the build name">
+        <f:checkbox />
+    </f:entry>
+
+    <f:entry title="Skip tag as latest" field="skipTagLatest"
+        description="Do not tag this build as the latest">
+        <f:checkbox />
+    </f:entry>
+
+    <f:entry title="Build Context" field="buildContext"
+      description="The project root path for the build. Defaults to the workspace root if not specified.">
+      <f:textbox />
+    </f:entry>
+
+    <f:entry title="Force Tag Replacement" field="forceTag"
+        description="Force tag replacement when tag already exists (only use in Docker pre-1.10)">
+        <f:checkbox default="false" />
+    </f:entry>
+
+    <f:entry title="Additional Build Arguments" field="buildAdditionalArgs"
+      description="Additional build arguments passed to docker build such as --build-arg https_proxy=&quot;http://some.proxy:port&quot;">
+      <f:textbox />
+    </f:entry>
+
+    <f:entry title="Dockerfile Path" field="dockerfilePath"
+      description="Path to the Dockerfile for this build. File must be relative to build context. Can be used to specify a Dockerfile with a non-standard filename. Uses Docker client default if not specified.">
+      <f:textbox />
+    </f:entry>
+
+    <dc:selectDockerTool field="dockerToolName"/>
+
+  </f:advanced>
+
+</j:jelly>
