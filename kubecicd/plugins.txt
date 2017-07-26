@@ -1,0 +1,6 @@
+scm-api:latest
+git-client:latest
+git:latest
+kubernetes:latest
+docker-build-publish:latest
+greenballs:latest
