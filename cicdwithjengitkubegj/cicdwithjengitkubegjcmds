@@ -1,0 +1,8 @@
+kubectl set image deployment <deployment> <container>=<image>
+kubectl rollout history deployment <deployment>
+kubectl rollout undo deploy/<deployment>
+
+
+
+
+
